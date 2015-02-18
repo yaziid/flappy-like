@@ -3,19 +3,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string>
+#include <sstream>
 
 int main()
 {
-    int const pige = 4; // le nombre de piège
-    sf::RenderWindow app(sf::VideoMode(800, 600), "Jeu Yaz");
+    int const pige = 6; // le nombre de piège
+    int const pospiege = 4000;
     float const gravite = 1;
-    int terre = 300;
-    int speed = 50; // normalement 5
+    int const terre = 300;
+    int const speed = 6; // normalement 6
     sf::Vector2f velocite;
     sf::View vue;
-    bool vie = true; // bool pour savoir si tjr en vie
-    sf::RectangleShape piege[pige];
-    bool gen = true; // bool pour génération des pièges
+    bool vie = true; // bool pour savoir si tjr en vie val par défaut true
+    bool gen = true; // bool pour génération des pièges val par défaut true
+    bool feu = false; // savoir si flamme ou projectile val par défaut true
     sf::Texture flammes;
     sf::Sprite flame[pige];
     sf::Texture arriere;
@@ -25,14 +27,18 @@ int main()
     sf::Sprite millieu[pige];
     sf::Texture balon;
     sf::Sprite ballon;
+    sf::Sprite flame_h[pige];
+    sf::Font font;
+    sf::Text score;
+    std::string scores;
+    std::stringstream ss;
+    sf::RectangleShape proj[pige];
+    sf::ContextSettings settings;
+    int bouclepiege = 0;
 
-    plate.setSize(sf::Vector2f(20000, 1));
-    plate.setFillColor(sf::Color::Yellow);
-    plate.setPosition(0, terre);
+    settings.antialiasingLevel = 8;
 
-    haut.setSize(sf::Vector2f(20000, 1));
-    haut.setFillColor(sf::Color::Yellow);
-    haut.setPosition(0, 0);
+    sf::RenderWindow app(sf::VideoMode(800, 600), "Jeu Yaz", sf::Style::Default, settings);
 
     app.setFramerateLimit(60);
 
@@ -60,6 +66,11 @@ int main()
         std::cout<<"Erreur chargement texture"<<std::endl;
     }
 
+    if(!font.loadFromFile("arial.ttf"))
+    {
+        std::cout<<"Erreur chargement police"<<std::endl;
+    }
+
     flammes.setSmooth(true);
     arriere.setSmooth(true);
     milieu.setSmooth(true);
@@ -68,6 +79,12 @@ int main()
     for(int k = 0; k < pige; k++) // sprite piege
     {
         flame[k].setTexture(flammes);
+    }
+
+    for(int k = 0; k < pige; k++) // sprite piege haut
+    {
+        flame_h[k].setTexture(flammes);
+        flame_h[k].rotate(180);
     }
 
     for(int l = 0; l < pige; l++) // sprite back haut
@@ -89,11 +106,24 @@ int main()
     }
 
     ballon.setTexture(balon);
-    ballon.setPosition(-20, 10);
+    ballon.setPosition(-60, 250);
+
+    // gestion du score
+    score.setFont(font);
+    score.setString("Score: 0");
+    score.setCharacterSize(24);
+    score.setColor(sf::Color::White);
+    score.setStyle(sf::Text::Bold);
 
     while (app.isOpen())
     {
+        //gestion du score
+        ss.str("");
+        ss<<ballon.getPosition().x;
+        scores = ss.str();
         vue.setCenter(ballon.getPosition());
+        score.setString("Score: "+ scores);
+        score.setPosition(ballon.getPosition().x - 350, -40);
 
         sf::Event event;
 
@@ -103,14 +133,21 @@ int main()
             {
                 app.close();
             }
-
+                if(event.type == sf::Event::KeyPressed) // juste pour le debug a enlever dans la final release !
+                {
+                    if(event.key.code == sf::Keyboard::T)
+                    {
+                        vie = true;
+                        ballon.setPosition(ballon.getPosition().x, 160);
+                    }
+                }
         }
 
         if(vie) // si le joueur est tjr en vie
         {
             for(int i = 0; i < 2; i++)
             {
-                if(ground[i].getPosition().x + 800  < ballon.getPosition().x )
+                if(ground[i].getPosition().x + 800 < ballon.getPosition().x )
                 {
                     ground[i].setPosition(ballon.getPosition().x, -350); // millieu
                     bac[i].setPosition(ballon.getPosition().x, 300);
@@ -123,8 +160,6 @@ int main()
                     ground[i + 2].setPosition(ballon.getPosition().x + 800, -350); // devant
                     bac[i + 2].setPosition(ballon.getPosition().x + 800, 300);
                     millieu[i + 2].setPosition(ballon.getPosition().x + 800, 0);
-
-                    std::cout<<"ballon"<<ballon.getPosition().x<<std::endl;
                 }
             }
 
@@ -167,22 +202,70 @@ int main()
             ballon.move(velocite.x, velocite.y);
             vue.move(velocite);
 
-            if(ballon.getPosition().x > 8000 && gen) // gestion des pièges
+            if(feu)
             {
-                for(int i = 0; i < pige; i++)
+                if(ballon.getPosition().x - 850 > flame[pige - 1].getPosition().x && ballon.getPosition().x - 850 > flame_h[pige - 1].getPosition().x)
                 {
-                    int tmp = rand() % 10000 + 8000;
-
-                    piege[i].setSize(sf::Vector2f(7, -70));
-                    piege[i].setFillColor(sf::Color::Yellow);
-                    piege[i].setPosition(tmp, terre);
-
-                    std::cout<<"piege !! i = "<<i<<" lautre truc: "<<piege[i].getPosition().x<<std::endl;
-
-                    flame[i].setPosition(tmp - 20, terre - 79);
-
-                    gen = false;
+                    gen = true;
                 }
+
+                if(ballon.getPosition().x > pospiege && gen) // gestion des pièges
+                {
+                    for(int i = 0; i < pige; i++)
+                    {
+                        int tmp = rand() % (int(ballon.getPosition().x) + 1050) + (int(ballon.getPosition().x) + 850); // piege bas
+                        int tmmp = rand() % (int(ballon.getPosition().x) + 1050) + (int(ballon.getPosition().x) + 850); // piege haut
+
+                        flame[i].setPosition(tmp, terre - 79);
+                        flame_h[i].setPosition(tmmp, 0 + 79);
+
+                        if(flame[i - 1].getGlobalBounds().intersects(flame[i].getGlobalBounds())) // pour eviter que les flames soit proche
+                        {
+                            tmp = rand() % (int(ballon.getPosition().x) + 1050) + (int(ballon.getPosition().x) + 850);
+                            flame[i].setPosition(tmp, terre - 79);
+                        }
+
+                        if(flame_h[i - 1].getGlobalBounds().intersects(flame_h[i].getGlobalBounds()))
+                        {
+                            tmmp = rand() % (int(ballon.getPosition().x) + 1050) + (int(ballon.getPosition().x) + 850);
+                            flame_h[i].setPosition(tmmp, 0 + 79);
+                        }
+
+                        gen = false;
+
+                        if(bouclepiege >= 2 && ballon.getPosition().x > flame[pige - 1].getPosition().x && ballon.getPosition().x > flame_h[pige - 1].getPosition().x)
+                        {
+                            feu = false;
+                            bouclepiege = 0;
+                        }
+
+                    }
+
+                    bouclepiege++;
+                }
+            }
+
+            if(feu == false)
+            {
+                int tmmp = rand() % 4 + 0;
+
+                for(int i = 0; i < tmmp; i++)
+                {
+                    int tmp = rand() % 300 + 0;
+
+                    proj[i].setSize(sf::Vector2f(10, 10));
+                    proj[i].setOutlineColor(sf::Color::Red);
+                    proj[i].setOutlineThickness(5);
+                    proj[i].setPosition(ballon.getPosition().x + 850, tmp);
+
+                    feu = true;
+                }
+
+            }
+
+            for(int i = 0; i < pige; i++)
+            {
+                proj[i].move(-3, 0);
             }
 
             for(int i = 0; i < 3; i++) // s'il touche en haut ou en bas
@@ -190,19 +273,22 @@ int main()
                 if(ballon.getGlobalBounds().intersects(ground[i].getGlobalBounds()) || ballon.getGlobalBounds().intersects(bac[i].getGlobalBounds())) // gamer over
                 {
                     vie = false;
-                    std::cout<<"votre score est "<<ballon.getPosition().x<<std::endl;
+                    score.setColor(sf::Color::Red);
                 }
             }
 
-            if(ballon.getGlobalBounds().intersects(piege[0].getGlobalBounds()) ||
-               ballon.getGlobalBounds().intersects(piege[1].getGlobalBounds()) ||
-               ballon.getGlobalBounds().intersects(piege[2].getGlobalBounds()) ||
-               ballon.getGlobalBounds().intersects(piege[3].getGlobalBounds()) ||
-               ballon.getGlobalBounds().intersects(piege[4].getGlobalBounds()) // s'il touche un piège
-               )
+
+            for(int i = 0; i < pige; i++)
             {
-                vie = false;
-                std::cout<<"votre score est "<<ballon.getPosition().x<<std::endl;
+                if(ballon.getGlobalBounds().intersects(flame[i].getGlobalBounds()) ||
+                   ballon.getGlobalBounds().intersects(flame_h[i].getGlobalBounds())) // s'il touche un piège
+                {
+                    if(ballon.getPosition().x > pospiege)
+                    {
+                        vie = false;
+                        score.setColor(sf::Color::Red);
+                    }
+                }
             }
         }
 
@@ -214,16 +300,18 @@ int main()
             app.draw(ground[i]); // haut
             app.draw(bac[i]); // bas
             app.draw(millieu[i]); // millieu
+            app.draw(proj[i]); // projectiles
         }
-        app.draw(ballon);
         for(int j = 0; j < pige; j++) // affichage piege flamme
         {
-            if(ballon.getPosition().x > 8000)
+            if(ballon.getPosition().x > pospiege)
             {
-                app.draw(piege[j]);
                 app.draw(flame[j]);
+                app.draw(flame_h[j]);
             }
         }
+        app.draw(score);
+        app.draw(ballon);
 
         app.display();
     }
